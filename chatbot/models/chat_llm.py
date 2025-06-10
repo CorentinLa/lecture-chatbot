@@ -12,7 +12,7 @@ class State(TypedDict):
 
 
 class ChatbotLLM():
-    def __init__(self, model_name: str = "mistral:latest", temperature: float = 0.8, num_predict: int = 256, base_url: str = "http://127.0.0.1:11434/"):
+    def __init__(self, model_name: str = "mistral:latest", temperature: float = 0.3, num_predict: int = 512, base_url: str = "http://127.0.0.1:11434/"):
         self.llm = ChatOllama(
             model=model_name,
             temperature=temperature,
