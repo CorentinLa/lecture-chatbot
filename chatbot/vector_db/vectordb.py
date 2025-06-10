@@ -1,10 +1,10 @@
 import chromadb
 from typing import List, Dict, Union
-from langchain_ollama import OllamaEmbeddings
+from chatbot.models.embedding import EmbeddingModel
 
 
 class VectorDB:
-    def __init__(self, client: chromadb.Client, embedding_model: OllamaEmbeddings):
+    def __init__(self, client: chromadb.Client, embedding_model: EmbeddingModel):
         self.client = client
         self.collection = client.get_or_create_collection(name="documents")
         self.embedding_model = embedding_model
