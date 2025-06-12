@@ -5,19 +5,18 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 
 class PDFReader:
-    def __init__(self, file_path: str, user: int):
-        self.file_path = file_path
+    def __init__(self, file, user: int, doc_name: str = None):
         self.user = user
 
         try:
-            self.doc = fitz.open(file_path)
+            self.doc = fitz.open(stream=file, filetype="pdf")
         except Exception as e:
-            raise ValueError(f"Could not open PDF file: {file_path}. Error: {e}")
+            raise ValueError(f"Could not open PDF file. Error: {e}")
         
         self.pages = {page.number: self.parse_blocks(page) for page in self.doc}
 
         self.title = self.doc.metadata["title"] if self.doc.metadata["title"] != "" else "Untitled"
-        self.name = self.doc.name
+        self.name = doc_name
         self.author = self.doc.metadata["author"] if self.doc.metadata["author"] != "" else "Unknown"
 
 

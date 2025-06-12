@@ -1,9 +1,10 @@
-from typing import Union
+from typing import Union, Annotated
 
-from fastapi import FastAPI
+from fastapi import FastAPI, File, UploadFile
 
 import sys
 import os
+
 sys.path.append("./lecture-chatbot")
 
 from chromadb import PersistentClient
@@ -11,6 +12,7 @@ from chromadb import PersistentClient
 from chatbot.models.chat_llm import ChatbotLLM
 from chatbot.models.embedding import EmbeddingModel
 from chatbot.vector_db.vectordb import VectorDB
+from chatbot.utils.pdf import PDFReader
 
 
 app = FastAPI()
@@ -50,6 +52,15 @@ def read_root():
 def chat_infer(prompt: str):
     return chatbot.invoke(message=prompt)
 
+
+@app.put("/debug/reset_vector_db")
+def reset_vector_db():
+    """
+    Endpoint to reset the vector database.
+    Deletes all documents and metadata from the vector database.
+    """
+    rag_db.reset()
+    return {"status": "Vector database reset successfully"}
 
 @app.put("/debug/embedding")
 def debug_embedding(text: Union[str, list[str]]):
@@ -98,3 +109,49 @@ def retrieve_documents(query: str, limit: int = 5):
         "metadatas": results["metadatas"],
         "distances": results["distances"],
     }
+
+
+@app.post("/debug/upload_pdf")
+def upload_pdf(file: Annotated[bytes, File(description="Upload a PDF file")]):
+    """
+    Endpoint to upload a PDF file and process it
+    """
+    try:
+        pdf_reader = PDFReader(file, user=1)
+        pdf_reader.chunk(
+            chunk_size_blocks=3,
+            chunk_overlap_blocks=1,
+            chunk_size_chars=512,
+            chunk_overlap_chars=100,
+        )
+    except Exception as e:
+        return {"error": f"Failed to process PDF: {str(e)}"}
+
+    return {"status": "PDF uploaded and processed successfully",
+            "chunks": pdf_reader.final_chunks
+            }
+
+
+@app.post("/file/upload_pdf")
+async def upload_pdf(file: UploadFile = File(...)):
+    """
+    Upload a PDF file and process it into the vector_db.
+    """
+    try:
+        contents = await file.read()
+        filename = file.filename
+        pdf_reader = PDFReader(contents, user=1, doc_name=filename)
+        pdf_reader.chunk(
+            chunk_size_blocks=3,
+            chunk_overlap_blocks=1,
+            chunk_size_chars=1500,
+            chunk_overlap_chars=200,
+        )
+
+        # Add the processed chunks to the vector database
+        rag_db.add_langchain_documents(pdf_reader.final_chunks)
+
+    except Exception as e:
+        return {"error": f"Failed to process PDF: {str(e)}"}
+
+    return {"status": "PDF uploaded and processed successfully"}
