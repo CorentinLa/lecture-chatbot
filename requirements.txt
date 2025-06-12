@@ -7,3 +7,4 @@ langchain_ollama==0.3.3
 torch
 torchvision
 torchaudio
+pymupdf==1.26.1
