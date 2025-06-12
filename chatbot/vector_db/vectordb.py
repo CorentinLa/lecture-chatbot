@@ -1,6 +1,7 @@
 import chromadb
 from typing import List, Dict, Union
 from chatbot.models.embedding import EmbeddingModel
+from langchain_core.documents import Document
 
 
 class VectorDB:
@@ -26,9 +27,33 @@ class VectorDB:
         # TODO: Eventually use async embedding, or implement chromaDB embedding function to use async embedding https://docs.trychroma.com/docs/run-chroma/python-http-client
         embeddings = [self.embedding_model.embed_query(doc) for doc in document]
 
+        current_id = len(self.collection.get()['ids']) if self.collection.get()['ids'] else 0
+        ids = [str(current_id + i) for i in range(len(document))]
+
         self.collection.add(
             documents=document,
             metadatas=metadata,
-            ids=[str(len(self.collection.get()['ids']) + 1)],
+            ids=ids,
             embeddings=embeddings
         )
+
+    def add_langchain_documents(self, documents: List[Document]):
+        """Adds a LangChain Documents to the vector database.
+        Args:
+            documents (Document): The documents to add.
+        """
+        if isinstance(documents, Document):
+            documents = [documents]
+
+        docs = [doc.page_content for doc in documents]
+        metadatas = [doc.metadata for doc in documents]
+
+        self.add_document(
+            document=docs,
+            metadata=metadatas
+        )
+
+    def reset(self):
+        """Resets the vector database by deleting all documents and metadata."""
+        self.client.delete_collection(name="documents")
+        self.collection = self.client.get_or_create_collection(name="documents")
