@@ -17,14 +17,6 @@ from chatbot.utils.pdf import PDFReader
 
 app = FastAPI()
 
-# Initialize the chatbot with the Mistral model running on Ollama server
-chatbot = ChatbotLLM(
-    model_name="mistral:latest",
-    temperature=0.8,
-    num_predict=512,
-    base_url="http://127.0.0.1:11434/",
-)
-
 embedding_model = EmbeddingModel(
     model_name="nomic-embed-text:latest",
     base_url="http://127.0.0.1:11434/",
@@ -42,6 +34,17 @@ rag_db = VectorDB(
     embedding_model=embedding_model,
 )
 
+chatbot = ChatbotLLM(
+    model_name="mistral:latest",
+    temperature=0.8,
+    num_predict=512,
+    base_url="http://127.0.0.1:11434/",
+    embedding_model=embedding_model,
+    rag_db=rag_db,
+)
+
+
+
 
 @app.get("/")
 def read_root():
@@ -50,7 +53,7 @@ def read_root():
 
 @app.put("/chat/infer")
 def chat_infer(prompt: str):
-    return chatbot.invoke(message=prompt)
+    return chatbot.invoke(message=prompt, user=1)
 
 
 @app.put("/debug/reset_vector_db")
