@@ -1,0 +1,12 @@
+System: Here is a user question to be used for a search in a technical document database with a vector database:
+
+"{user_question}"
+
+If the question is already precise, informative, and targeted, return:
+NO_REWRITE
+
+Else, if the question is too vague, too broad, or not specific enough, return a reformulated version of the question that is more precise and informative.
+The reformulated query should be clear, and focused on the specific information the user is seeking. It should not include words like "please", "discuss" etc.
+The query should be purely informative on the subject and not necessarly be a question, and include the key words that could be in a document.
+
+Query:
