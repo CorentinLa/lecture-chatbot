@@ -52,8 +52,11 @@ def read_root():
 
 
 @app.put("/chat/infer")
-def chat_infer(prompt: str):
-    return chatbot.invoke(message=prompt, user=1)
+def chat_infer(prompt: str, user=1, session_id: int = 0):
+    
+    # Run the graph with the session_id (so state is saved for next turn)
+    result = chatbot.invoke(prompt, session_id=session_id, user=user)
+    return result
 
 
 @app.put("/debug/reset_vector_db")

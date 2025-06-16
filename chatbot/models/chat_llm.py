@@ -1,6 +1,7 @@
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 
 from langgraph.graph import StateGraph, START, END
+from langgraph.checkpoint.memory import InMemorySaver
 from typing import List, TypedDict
 
 from chatbot.vector_db.document import Document
@@ -63,10 +64,12 @@ class ChatbotLLM():
             )
 
             for doc, metadata, distance in zip(results['documents'][0], results['metadatas'][0], results['distances'][0]): # 0 because we only query one vector
-                state["context"].append(Document(
-                    content=doc,
-                    metadata=metadata
-                ))
+                if distance < 0.4:
+                    state["context"].append({
+                        "content": doc,
+                        "metadata": metadata
+                    }
+                    )
 
             return state
         
@@ -81,12 +84,24 @@ class ChatbotLLM():
                 query_embeddings=[query],
                 n_results=self.rag_result_limit,
             )
-            print(results)
+
             for doc, metadata, distance in zip(results['documents'][0], results['metadatas'][0], results['distances'][0]):
-                state["context"].append(Document(
-                    content=doc,
-                    metadata=metadata
-                ))
+                if distance < 0.4:
+                    state["context"].append({
+                        "content": doc,
+                        "metadata": metadata
+                    }
+                    )
+            return state
+        
+        def no_document_found(state: State) -> StateGraph:
+            """
+            Handle the case where no relevant documents are found.
+            """
+            state["messages"].append({
+                "role": "assistant",
+                "content": "No relevant documents found. Please try rephrasing your question."
+            })
             return state
         
         def generate_answer(state: State) -> StateGraph:
@@ -102,7 +117,7 @@ class ChatbotLLM():
                 answer_template = file.read()
 
             input_text = answer_template.format(
-                context="\n".join(doc.content for doc in context),
+                context="\n".join(doc["content"] for doc in context),
                 messages="\n".join(f"{msg['role']}: {msg['content']}" for msg in messages)
             )
 
@@ -110,12 +125,6 @@ class ChatbotLLM():
                 "messages": messages + [self.llm.invoke(input_text)]
             }
         
-        def should_retrieve_from_all_users(state: State) -> bool:
-            """
-            Determine if we should retrieve from all users based on the context.
-            If the context is empty, we retrieve from all users.
-            """
-            return "retrieve_from_all_users" if len(state["context"]) == 0 else "generate_answer"
         
         def reformulate_query(state: State) -> State:
             user_question = state["messages"][-1]["content"]
@@ -135,12 +144,26 @@ class ChatbotLLM():
                 state["messages"][-1]["embedding_query"] = user_question
 
             return state
-
+        
+        def should_retrieve_from_all_users(state: State) -> bool:
+            """
+            Determine if we should retrieve from all users based on the context.
+            If the context is empty, we retrieve from all users.
+            """
+            return "retrieve_from_all_users" if len(state["context"]) == 0 else "generate_answer"
+        
+        def should_generate_answer(state: State) -> bool:
+            """
+            Determine if we should generate an answer based on the context.
+            If the context is not empty, we generate an answer.
+            """
+            return "generate_answer" if len(state["context"]) > 0 else "no_document_found"
 
         graph.add_node("reformulate_query", reformulate_query)
         graph.add_node("retrieve", retrieve)
         graph.add_node("generate_answer", generate_answer)
         graph.add_node("retrieve_from_all_users", retrieve_from_all_users)
+        graph.add_node("no_document_found", no_document_found)
 
         graph.add_edge(START, "reformulate_query")
         graph.add_edge("reformulate_query", "retrieve")
@@ -152,20 +175,43 @@ class ChatbotLLM():
             "retrieve_from_all_users"]
         )
 
-        graph.add_edge("retrieve_from_all_users", "generate_answer")
+        graph.add_conditional_edges("retrieve_from_all_users", 
+            should_generate_answer, 
+            ["generate_answer", 
+            "no_document_found"]
+        )
+
+        graph.add_edge("no_document_found", END)
+
         graph.add_edge("generate_answer", END)
 
-        return graph.compile()
+        checkpointer = InMemorySaver()
+
+        return graph.compile(checkpointer=checkpointer)
     
-    def invoke(self, message: str, user: int) -> str:
+    def invoke(self, message: str, session_id, user: int) -> str:
         """
         Invoke the LLM with the given message and return the response.
         """
-        initial_state: State = {
-            "context": [],  
-            "messages": [{"role": "user", "content": message}],
-            "user": user, 
+
+        #TODO: If there is already context from previous turns, do not necessarly call the rag and reuse context.
+
+        config = {
+            "configurable": {"thread_id": str(session_id)},
         }
+
+        previous_state = self.graph.get_state(config).values
+        if previous_state != {}:
+            # Add the new user message to the previous state
+            previous_state["messages"].append({"role": "user", "content": message})
+            state = previous_state
+        else:
+            # Start a new conversation
+            state = {
+                "context": [],
+                "messages": [{"role": "user", "content": message}],
+                "user": user,
+            }
     
-        return self.graph.invoke(initial_state)
+        return self.graph.invoke(state, config=config)
 
