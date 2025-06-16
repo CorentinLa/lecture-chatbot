@@ -8,3 +8,4 @@ torch
 torchvision
 torchaudio
 pymupdf==1.26.1
+chromadb==1.0.12
