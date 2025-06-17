@@ -9,4 +9,7 @@ Else, if the question is too vague, too broad, or not specific enough, return a 
 The reformulated query should be clear, and focused on the specific information the user is seeking. It should not include words like "please", "discuss" etc.
 The query should be purely informative on the subject and not necessarly be a question, and include the key words that could be in a document.
 
+If it exists, use the following context to rewrite the query based on previous turns. 
+Context : {context}
+
 Query:

@@ -53,7 +53,8 @@ class ChatbotLLM():
             Retrieve relevant documents based on the current context.
             """
             query = self.embedding_model.embed_query(state["messages"][-1]["embedding_query"])
-            state["context"] = [] 
+            
+            if not hasattr(state, "context"): state["context"] = [] 
 
             results = self.rag_db.collection.query(
                 query_embeddings=[query],
@@ -78,7 +79,8 @@ class ChatbotLLM():
             Retrieve relevant documents from all users.
             """
             query = self.embedding_model.embed_query(state["messages"][-1]["embedding_query"])
-            state["context"] = [] 
+            if not hasattr(state, "context"): state["context"] = [] 
+
 
             results = self.rag_db.collection.query(
                 query_embeddings=[query],
@@ -118,12 +120,14 @@ class ChatbotLLM():
 
             input_text = answer_template.format(
                 context="\n".join(doc["content"] for doc in context),
-                messages="\n".join(f"{msg['role']}: {msg['content']}" for msg in messages)
+                messages="\n".join(f"{msg['role']}:{msg['content']}" for msg in messages)
             )
 
-            return {
-                "messages": messages + [self.llm.invoke(input_text)]
-            }
+            result = self.llm.invoke(input_text).model_dump()
+            result["role"] = "ai_assistant"
+            state["messages"].append(result)
+
+            return state
         
         
         def reformulate_query(state: State) -> State:
@@ -132,8 +136,11 @@ class ChatbotLLM():
             with open("./lecture-chatbot/chatbot/data/templates/reformulate_query.txt", "r") as file:
                 reformulate_template = file.read()
             
+            context = "\n".join(doc["content"] for doc in state["context"]) if hasattr(state, "context") else ""
+            context = context.join(mess["content"] for mess in state["messages"][:-1])
+
             decision_prompt = reformulate_template.format(
-                user_question=user_question,
+                user_question=user_question, context=context
             )
             
             result = self.llm.invoke(decision_prompt).content.strip()
