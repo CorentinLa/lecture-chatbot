@@ -137,10 +137,10 @@ class ChatbotLLM():
                 reformulate_template = file.read()
             
             context = "\n".join(doc["content"] for doc in state["context"]) if hasattr(state, "context") else ""
-            context = context.join(mess["content"] for mess in state["messages"][:-1])
+            messages = context.join(mess["content"] for mess in state["messages"][:-1])
 
             decision_prompt = reformulate_template.format(
-                user_question=user_question, context=context
+                user_question=user_question, context=f"{context}\nMessages:\n{messages}"
             )
             
             result = self.llm.invoke(decision_prompt).content.strip()
@@ -152,41 +152,93 @@ class ChatbotLLM():
 
             return state
         
+        def summarize_context(state: State) -> State:
+            """ 
+            Summarize the context if it is too long.
+            """
+
+            if not hasattr(state, "context") or len(state["context"]) == 0:
+                return state
+            
+            full_context = f"\n".join(f"Document {i}: " + doc["content"] + "\n" for i, doc in enumerate(state["context"]))
+            if len(full_context.split(" ")) * 1.40 > 3500:
+                with open("./lecture-chatbot/chatbot/data/templates/summarize_context.txt", "r") as file:
+                    summarize_template = file.read()
+
+                input_text = summarize_template.format(
+                    context=full_context,
+                    metadatas="\n".join(f"Metadata {i}: " + str(doc["metadata"]) for i, doc in enumerate(state["context"]) if doc["metadata"] != {}
+                )
+                )
+
+                summary = self.llm.invoke(input_text).content.strip()
+                state["context"] = [{"content": summary, "metadata": {}}]
+
+            return state
+        
+        def summarize_messages(state: State) -> State:
+            """
+            Summarize the messages in the conversation.
+            """
+
+            messages = state["messages"]
+            if not messages:
+                return state
+
+            full_messages = "\n".join(f"{msg['role']}:{msg['content']}" for msg in messages)
+            if len(full_messages.split(" ")) * 1.40 > 2500:
+                with open("./lecture-chatbot/chatbot/data/templates/summarize_messages.txt", "r") as file:
+                    summarize_template = file.read()
+
+                input_text = summarize_template.format(
+                    messages=full_messages
+                )
+
+                summary = self.llm.invoke(input_text).content.strip()
+                state["messages"] = [{"role": "system", "content": summary}]
+
+            return state
+        
         def should_retrieve_from_all_users(state: State) -> bool:
             """
             Determine if we should retrieve from all users based on the context.
             If the context is empty, we retrieve from all users.
             """
-            return "retrieve_from_all_users" if len(state["context"]) == 0 else "generate_answer"
+            return "retrieve_from_all_users" if len(state["context"]) == 0 else "summarize_context"
         
         def should_generate_answer(state: State) -> bool:
             """
             Determine if we should generate an answer based on the context.
             If the context is not empty, we generate an answer.
             """
-            return "generate_answer" if len(state["context"]) > 0 else "no_document_found"
+            return "summarize_context" if len(state["context"]) > 0 else "no_document_found"
 
         graph.add_node("reformulate_query", reformulate_query)
         graph.add_node("retrieve", retrieve)
         graph.add_node("generate_answer", generate_answer)
         graph.add_node("retrieve_from_all_users", retrieve_from_all_users)
         graph.add_node("no_document_found", no_document_found)
+        graph.add_node("summarize_context", summarize_context)
+        graph.add_node("summarize_messages", summarize_messages)
 
-        graph.add_edge(START, "reformulate_query")
+        graph.add_edge(START, "summarize_messages")
+        graph.add_edge("summarize_messages", "reformulate_query")
         graph.add_edge("reformulate_query", "retrieve")
 
         # Go to generate_answer if context is not empty, otherwise retrieve from all users
         graph.add_conditional_edges("retrieve", 
             should_retrieve_from_all_users, 
-            ["generate_answer", 
+            ["summarize_context", 
             "retrieve_from_all_users"]
         )
 
         graph.add_conditional_edges("retrieve_from_all_users", 
             should_generate_answer, 
-            ["generate_answer", 
+            ["summarize_context", 
             "no_document_found"]
         )
+
+        graph.add_edge("summarize_context", "generate_answer")
 
         graph.add_edge("no_document_found", END)
 
