@@ -9,3 +9,6 @@ torchvision
 torchaudio
 pymupdf==1.26.1
 chromadb==1.0.12
+python-multipart
+"fastapi[standard]"
+"uvicorn[standard]"
