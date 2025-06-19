@@ -53,7 +53,6 @@ class ChatbotLLM():
             Retrieve relevant documents based on the current context.
             """
             query = self.embedding_model.embed_query(state["messages"][-1]["embedding_query"])  
-            print(f"Query: {state["messages"][-1]["embedding_query"]}")
 
             results = self.rag_db.collection.query(
                 query_embeddings=[query],
@@ -62,8 +61,6 @@ class ChatbotLLM():
                     "user": int(state["user"])
                 }
             )
-
-            print(f"Results: {results}")
 
             for doc, metadata, distance in zip(results['documents'][0], results['metadatas'][0], results['distances'][0]): # 0 because we only query one vector
                 if distance < 0.4:
