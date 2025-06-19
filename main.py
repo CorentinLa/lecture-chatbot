@@ -17,9 +17,11 @@ from chatbot.utils.pdf import PDFReader
 
 app = FastAPI()
 
+base_url = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434/")
+
 embedding_model = EmbeddingModel(
     model_name="nomic-embed-text:latest",
-    base_url="http://127.0.0.1:11434/",
+    base_url=base_url,
 )
 
 if not os.path.exists("./lecture-chatbot/chatbot/data/vector_db/chroma_db"):
@@ -36,9 +38,9 @@ rag_db = VectorDB(
 
 chatbot = ChatbotLLM(
     model_name="mistral:latest",
-    temperature=0.8,
+    temperature=0.4,
     num_predict=512,
-    base_url="http://127.0.0.1:11434/",
+    base_url=base_url,
     embedding_model=embedding_model,
     rag_db=rag_db,
 )
