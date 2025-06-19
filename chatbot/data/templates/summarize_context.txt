@@ -3,7 +3,10 @@ The goal is to retain the key ideas, content, and thesis, while removing redunda
 Keep the summary concise, in natural language, and preserve the context necessary for future questions.
 Precise the sources used after the summary.
 
-Conversation:
-{messages}
+Documents:
+{context}
+
+Document metadatas:
+{metadatas}
 
 Summary:

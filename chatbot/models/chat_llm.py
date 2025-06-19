@@ -48,21 +48,22 @@ class ChatbotLLM():
     def init_agent_graph(self) -> StateGraph:
         graph = StateGraph(State)
 
-        def retrieve(state: State) -> State:
+        def retrieve(state: State) -> StateGraph:
             """
             Retrieve relevant documents based on the current context.
             """
-            query = self.embedding_model.embed_query(state["messages"][-1]["embedding_query"])
-            
-            if not hasattr(state, "context"): state["context"] = [] 
+            query = self.embedding_model.embed_query(state["messages"][-1]["embedding_query"])  
+            print(f"Query: {state["messages"][-1]["embedding_query"]}")
 
             results = self.rag_db.collection.query(
                 query_embeddings=[query],
                 n_results=self.rag_result_limit,
                 where={
-                    "user": state["user"]
+                    "user": int(state["user"])
                 }
             )
+
+            print(f"Results: {results}")
 
             for doc, metadata, distance in zip(results['documents'][0], results['metadatas'][0], results['distances'][0]): # 0 because we only query one vector
                 if distance < 0.4:
@@ -79,7 +80,6 @@ class ChatbotLLM():
             Retrieve relevant documents from all users.
             """
             query = self.embedding_model.embed_query(state["messages"][-1]["embedding_query"])
-            if not hasattr(state, "context"): state["context"] = [] 
 
 
             results = self.rag_db.collection.query(
@@ -130,13 +130,13 @@ class ChatbotLLM():
             return state
         
         
-        def reformulate_query(state: State) -> State:
+        def reformulate_query(state: State) -> StateGraph:
             user_question = state["messages"][-1]["content"]
 
             with open("./lecture-chatbot/chatbot/data/templates/reformulate_query.txt", "r") as file:
                 reformulate_template = file.read()
             
-            context = "\n".join(doc["content"] for doc in state["context"]) if hasattr(state, "context") else ""
+            context = "\n".join(doc["content"] for doc in state["context"])
             messages = context.join(mess["content"] for mess in state["messages"][:-1])
 
             decision_prompt = reformulate_template.format(
@@ -152,14 +152,13 @@ class ChatbotLLM():
 
             return state
         
-        def summarize_context(state: State) -> State:
+        def summarize_context(state: State) -> StateGraph:
             """ 
             Summarize the context if it is too long.
             """
 
-            if not hasattr(state, "context") or len(state["context"]) == 0:
-                return state
-            
+            last_memory = state["context"][-3:] if state["context"] else None
+
             full_context = f"\n".join(f"Document {i}: " + doc["content"] + "\n" for i, doc in enumerate(state["context"]))
             if len(full_context.split(" ")) * 1.40 > 3500:
                 with open("./lecture-chatbot/chatbot/data/templates/summarize_context.txt", "r") as file:
@@ -172,11 +171,11 @@ class ChatbotLLM():
                 )
 
                 summary = self.llm.invoke(input_text).content.strip()
-                state["context"] = [{"content": summary, "metadata": {}}]
+                state["context"] = [{"content": summary, "metadata": {}}, last_memory]
 
             return state
         
-        def summarize_messages(state: State) -> State:
+        def summarize_messages(state: State) -> StateGraph:
             """
             Summarize the messages in the conversation.
             """
@@ -184,6 +183,9 @@ class ChatbotLLM():
             messages = state["messages"]
             if not messages:
                 return state
+            
+            last_memory = messages[-1]
+
 
             full_messages = "\n".join(f"{msg['role']}:{msg['content']}" for msg in messages)
             if len(full_messages.split(" ")) * 1.40 > 2500:
@@ -195,7 +197,7 @@ class ChatbotLLM():
                 )
 
                 summary = self.llm.invoke(input_text).content.strip()
-                state["messages"] = [{"role": "system", "content": summary}]
+                state["messages"] = [{"role": "system", "content": summary}, last_memory]
 
             return state
         

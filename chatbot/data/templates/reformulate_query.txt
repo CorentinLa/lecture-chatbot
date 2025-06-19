@@ -7,9 +7,10 @@ NO_REWRITE
 
 Else, if the question is too vague, too broad, or not specific enough, return a reformulated version of the question that is more precise and informative.
 The reformulated query should be clear, and focused on the specific information the user is seeking. It should not include words like "please", "discuss" etc.
-The query should be purely informative on the subject and not necessarly be a question, and include the key words that could be in a document.
 
-If it exists, use the following context to rewrite the query based on previous turns. 
+Eventually use context to replace unknown pronoums. DO NOT use context to add information into the query NOR answer the question.
 Context : {context}
+
+Reminder: the question to rewrite is "{user_question}", and you should NOT answer the question but REWRITE it into a query.
 
 Query:
