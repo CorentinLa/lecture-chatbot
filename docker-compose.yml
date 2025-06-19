@@ -12,6 +12,13 @@ services:
       - ollama_data:/root/.ollama
       - ./ollama/entrypoint.sh:/entrypoint.sh:ro
     entrypoint: ["/bin/bash", "/entrypoint.sh"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
   fastapi:
     build:
