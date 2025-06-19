@@ -35,7 +35,7 @@ class ChatbotLLM():
             base_url=base_url,
         )
 
-        with open("./lecture-chatbot/chatbot/data/templates/chat_template.txt", "r") as file:
+        with open("./chatbot/data/templates/chat_template.txt", "r") as file:
             self.chat_prompt = file.read()
 
         self.graph = self.init_agent_graph()
@@ -112,7 +112,7 @@ class ChatbotLLM():
             
             
             # Combine context and messages to form the input for the LLM
-            with open("./lecture-chatbot/chatbot/data/templates/generate_answer.txt", "r") as file:
+            with open("./chatbot/data/templates/generate_answer.txt", "r") as file:
                 answer_template = file.read()
 
             input_text = answer_template.format(
@@ -130,7 +130,7 @@ class ChatbotLLM():
         def reformulate_query(state: State) -> StateGraph:
             user_question = state["messages"][-1]["content"]
 
-            with open("./lecture-chatbot/chatbot/data/templates/reformulate_query.txt", "r") as file:
+            with open("./chatbot/data/templates/reformulate_query.txt", "r") as file:
                 reformulate_template = file.read()
             
             context = "\n".join(doc["content"] for doc in state["context"])
@@ -158,7 +158,7 @@ class ChatbotLLM():
 
             full_context = f"\n".join(f"Document {i}: " + doc["content"] + "\n" for i, doc in enumerate(state["context"]))
             if len(full_context.split(" ")) * 1.40 > 3500:
-                with open("./lecture-chatbot/chatbot/data/templates/summarize_context.txt", "r") as file:
+                with open("./chatbot/data/templates/summarize_context.txt", "r") as file:
                     summarize_template = file.read()
 
                 input_text = summarize_template.format(
@@ -186,7 +186,7 @@ class ChatbotLLM():
 
             full_messages = "\n".join(f"{msg['role']}:{msg['content']}" for msg in messages)
             if len(full_messages.split(" ")) * 1.40 > 2500:
-                with open("./lecture-chatbot/chatbot/data/templates/summarize_messages.txt", "r") as file:
+                with open("./chatbot/data/templates/summarize_messages.txt", "r") as file:
                     summarize_template = file.read()
 
                 input_text = summarize_template.format(

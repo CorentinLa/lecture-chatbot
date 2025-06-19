@@ -5,7 +5,7 @@ from fastapi import FastAPI, File, UploadFile
 import sys
 import os
 
-sys.path.append("./lecture-chatbot")
+sys.path.append("./")
 
 from chromadb import PersistentClient
 
@@ -24,11 +24,11 @@ embedding_model = EmbeddingModel(
     base_url=base_url,
 )
 
-if not os.path.exists("./lecture-chatbot/chatbot/data/vector_db/chroma_db"):
-    os.makedirs("./lecture-chatbot/chatbot/data/vector_db/chroma_db")
+if not os.path.exists("./chatbot/data/vector_db/chroma_db"):
+    os.makedirs("./chatbot/data/vector_db/chroma_db")
 
 db_client = PersistentClient(
-    path="./lecture-chatbot/chatbot/data/vector_db/chroma_db",
+    path="./chatbot/data/vector_db/chroma_db",
 )
 
 rag_db = VectorDB(
