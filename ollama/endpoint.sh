@@ -2,7 +2,7 @@
 
 ollama serve &
 
-until curl -s http://localhost:11434 > /dev/null; do
+until curl -s http://localhost:11434/ > /dev/null; do
     echo "Waiting for Ollama server..."
     sleep 1
 done
