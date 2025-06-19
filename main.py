@@ -17,7 +17,7 @@ from chatbot.utils.pdf import PDFReader
 
 app = FastAPI()
 
-base_url = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434/")
+base_url = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434/")
 
 embedding_model = EmbeddingModel(
     model_name="nomic-embed-text:latest",
